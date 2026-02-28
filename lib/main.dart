@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -24,39 +23,66 @@ class MyApp extends StatelessWidget {
   }
 }
 
+class CoreLogic {
+  static final CoreLogic _instance = CoreLogic._internal();
+  factory CoreLogic() => _instance;
+  CoreLogic._internal();
+  static const plat = MethodChannel("wasd");
+  int steps = 0;
+  final List<double> w = [1200, 2500, 1800, 3200, 2100, 4500, 2800];
+  final List<double> m = [
+    800,
+    1500,
+    2200,
+    3100,
+    1900,
+    4000,
+    3500,
+    2800,
+    4200,
+    3000,
+  ];
+  void init(Function onUpdate){
+    load().then((data){
+      if(data.containsKey('step')){
+        steps = data['step'];
+        onUpdate();
+      }
+    });
+    plat.setMethodCallHandler((handler) async{
+      if(handler.method == "onsss"){
+        steps++;
+        save();
+        onUpdate();
+      }
+    });
+  }
+  Future<void> save() async{
+    String jS = json.encode({
+      'step': steps,
+      'date': DateTime.now().toString().split(' ')[0],
+    });
+    await plat.invokeMethod("save",{"json": jS});
+  }
+  Future<Map<String,dynamic>> load() async{
+    String? jS = await plat.invokeMethod("load");
+    if(jS == null || jS.isEmpty) return{};
+    return json.decode(jS);
+  }
+}
+
+
 class MyHomePage extends StatefulWidget {
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage>
-    with SingleTickerProviderStateMixin {
-  int _counter = 0;
-  final plat = MethodChannel("wasd");
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-  }
-
+class _MyHomePageState extends State<MyHomePage> {
+  final core = CoreLogic();
   @override
   void initState() {
     super.initState();
-    plat.setMethodCallHandler((handler) async {
-      if (handler.method == "onsss") {
-        setState(() {
-          _counter++;
-        });
-      }
-      if(_counter % 5 == 0){
-        LoadStore.save({
-          'step': _counter,
-          'date': DateTime.now().toString().split(' ')[0],
-        });
-      }
-      ;
-    });
+    core.init(()=>setState(() {}));
   }
 
   @override
@@ -73,15 +99,15 @@ class _MyHomePageState extends State<MyHomePage>
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 Text(
-                  '$_counter 步',
+                  '${core.steps} 步',
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 Text(
-                  '${(_counter * 0.7).toInt()} m',
+                  '${(core.steps * 0.7).toInt()} m',
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 Text(
-                  '${(_counter * 0.5).toInt()} cal',
+                  '${(core.steps * 0.5).toInt()} cal',
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 IconButton(
@@ -98,11 +124,6 @@ class _MyHomePageState extends State<MyHomePage>
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
     );
   }
 }
@@ -115,37 +136,24 @@ class WP extends StatefulWidget {
 }
 
 class _WPState extends State<WP> {
-  final List<double> _w = [1200, 2500, 1800, 3200, 2100, 4500, 2800];
-  final List<double> _m = [
-    800,
-    1500,
-    2200,
-    3100,
-    1900,
-    4000,
-    3500,
-    2800,
-    4200,
-    3000,
-  ];
+  final core = CoreLogic();
   List<double> _cd = [0, 0, 0, 0, 0, 0, 0];
   bool _isWeek = true;
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration(milliseconds: 500), () {
+    Future.delayed(Duration(milliseconds: 500),(){
       setState(() {
-        _cd = _w;
+        _cd = core.w;
       });
     });
   }
-
   void _tg(bool toWeek) {
     if (_isWeek == toWeek) return;
     setState(() {
       _isWeek = toWeek;
-      _cd = toWeek ? _w : _m;
+      _cd = toWeek ? core.w : core.m;
     });
   }
 
@@ -212,10 +220,10 @@ class _WPState extends State<WP> {
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           setState(() {
-            _cd = List.filled((_isWeek ? _w : _m).length, 0);
+            _cd = List.filled((_isWeek ? core.w : core.m).length, 0);
             Future.delayed(Duration(milliseconds: 1000),(){
               setState(() {
-                _cd = _isWeek ? _w : _m;
+                _cd = _isWeek ? core.w : core.m;
               });
             });
           });
@@ -237,18 +245,5 @@ class _PPState extends State<PP> {
   @override
   Widget build(BuildContext context) {
     return const Placeholder();
-  }
-}
-
-class LoadStore{
-  static const plat = MethodChannel("wasd");
-  static Future<void> save(Map<String,dynamic> data) async{
-    String jS = json.encode(data);
-    await plat.invokeListMethod("save",{"json": jS});
-  }
-  static Future<Map<String,dynamic>> load() async{
-    String? jS = await plat.invokeMethod("load");
-    if(jS == null || jS.isEmpty) return{};
-    return json.decode(jS);
   }
 }

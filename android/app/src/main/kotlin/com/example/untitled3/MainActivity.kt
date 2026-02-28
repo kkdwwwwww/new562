@@ -53,7 +53,7 @@ class MainActivity : FlutterActivity(), SensorEventListener{
                     val a = sqrt(x*x+y*y+z*z)
                     if (a > 15){
                         val n = System.currentTimeMillis()
-                        if (n - long > 15){
+                        if (n - long > 500){
                             long = n
                             methodChannel.invokeMethod("onsss",null)
                         }

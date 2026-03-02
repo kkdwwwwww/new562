@@ -388,6 +388,7 @@ class _PPState extends State<PP> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    core.init(() => setState(() {}));
     _controller = AnimationController(
       vsync: this,
       lowerBound: double.negativeInfinity,

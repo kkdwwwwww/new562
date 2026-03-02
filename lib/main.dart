@@ -29,38 +29,43 @@ class CoreLogic {
   CoreLogic._internal();
   static const plat = MethodChannel("wasd");
   int steps = 0;
-  final List<double> w = [1200, 2500, 1800, 3200, 2100, 4500, 2800];
-  final List<double> m = [
-    800,
-    1500,
-    2200,
-    3100,
-    1900,
-    4000,
-    3500,
-    2800,
-    4200,
-    3000,
-  ];
+  String lastDate = "";
+  List<double> _7d = List.filled(7, 0);
+  List<double> m = List.filled(12, 0);
+  Function? _onUpdate;
   void init(Function onUpdate){
+    _onUpdate = onUpdate;
     load().then((data){
       if(data.containsKey('step')){
         steps = data['step'];
-        onUpdate();
+        lastDate = data['date'] ?? "";
+        if(data.containsKey('7d')) _7d = List<double>.from(data['7d']);
+        if(data.containsKey('12m')) m = List<double>.from(data['12m']);
+        _checkDate();
+        _7d.last = steps.toDouble();
+        _onUpdate?.call();
+      }else{
+        lastDate = DateTime.now().toString().split(' ')[0];
+        save();
       }
     });
     plat.setMethodCallHandler((handler) async{
       if(handler.method == "onsss"){
+        _checkDate();
         steps++;
+        _7d.last = steps.toDouble();
         save();
-        onUpdate();
+        _onUpdate?.call();
       }
     });
   }
   Future<void> save() async{
+    if(lastDate == "") lastDate = DateTime.now().toString().split(' ')[0];
     String jS = json.encode({
       'step': steps,
-      'date': DateTime.now().toString().split(' ')[0],
+      'date': lastDate,
+      '7d': _7d,
+      '12m': m
     });
     await plat.invokeMethod("save",{"json": jS});
   }
@@ -68,6 +73,31 @@ class CoreLogic {
     String? jS = await plat.invokeMethod("load");
     if(jS == null || jS.isEmpty) return{};
     return json.decode(jS);
+  }
+  Future<void> clearData() async{
+    steps = 0;
+    lastDate = DateTime.now().toString().split(' ')[0];
+    _7d = List.filled(7, 0);
+    m = List.filled(12, 0);
+    await save();
+    _onUpdate?.call();
+  }
+  void _checkDate(){
+    String todayStr = DateTime.now().toString().split(' ')[0];
+    if(lastDate == "" && lastDate == todayStr) return;
+    DateTime last = DateTime.parse(lastDate);
+    DateTime today = DateTime.parse(todayStr);
+    int dayOff = today.difference(last).inDays;
+    if(dayOff > 0){
+      for(int i = 0;i<dayOff;i++){
+        _7d.removeAt(0);
+        _7d.add(0.0);
+      }
+      steps = 0;
+      lastDate = todayStr;
+      _7d.last = 0.0;
+      save();
+    }
   }
 }
 
@@ -91,6 +121,7 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text("需求一"),
+        actions: [IconButton(onPressed: ()=>core.clearData(), icon: Icon(Icons.delete))],
       ),
       body: ListView(
         children: [
@@ -107,7 +138,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 Text(
-                  '${(core.steps * 0.5).toInt()} cal',
+                  isk(),
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 IconButton(
@@ -125,6 +156,14 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
       ),
     );
+  }
+
+  String isk() {
+    String www;
+    if(core.steps * 0.03 >= 1){
+      www =  "${(core.steps * 0.03).toInt()} kcal";
+    } else www = "${(core.steps * 30).toInt()} cal";
+    return www;
   }
 }
 
@@ -145,7 +184,7 @@ class _WPState extends State<WP> {
     super.initState();
     Future.delayed(Duration(milliseconds: 500),(){
       setState(() {
-        _cd = core.w;
+        _cd = core._7d;
       });
     });
   }
@@ -153,7 +192,7 @@ class _WPState extends State<WP> {
     if (_isWeek == toWeek) return;
     setState(() {
       _isWeek = toWeek;
-      _cd = toWeek ? core.w : core.m;
+      _cd = toWeek ? core._7d : core.m;
     });
   }
 
@@ -170,6 +209,7 @@ class _WPState extends State<WP> {
           },
           icon: Icon(Icons.arrow_back),
         ),
+        actions: [IconButton(onPressed: ()=>core.clearData(), icon: Icon(Icons.delete))],
       ),
       body: ListView(
         children: [
@@ -220,10 +260,10 @@ class _WPState extends State<WP> {
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           setState(() {
-            _cd = List.filled((_isWeek ? core.w : core.m).length, 0);
+            _cd = List.filled((_isWeek ? core._7d : core.m).length, 0);
             Future.delayed(Duration(milliseconds: 1000),(){
               setState(() {
-                _cd = _isWeek ? core.w : core.m;
+                _cd = _isWeek ? core._7d : core.m;
               });
             });
           });

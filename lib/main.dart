@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 
 void main() {
@@ -142,27 +144,41 @@ class _MyHomePageState extends State<MyHomePage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                SizedBox(height: 20,),
-                Stack(alignment: Alignment.center,children: [
-                  SizedBox(height: 200,width: 200,child:
-                  CircularProgressIndicator(value: core.steps / 10000,strokeWidth: 12,color: Colors.orange,backgroundColor: Colors.grey,),),
-                  Padding(padding: EdgeInsets.all(16), child: Column(
-                    children: [
-                      Text(
-                        '${core.steps} 步',
-                        style: Theme.of(context).textTheme.headlineMedium,
+                SizedBox(height: 20),
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      height: 200,
+                      width: 200,
+                      child: CircularProgressIndicator(
+                        value: core.steps / 10000,
+                        strokeWidth: 12,
+                        color: Colors.orange,
+                        backgroundColor: Colors.grey,
                       ),
-                      Text(
-                        '${(core.steps * 0.7).toInt()} m',
-                        style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          Text(
+                            '${core.steps} 步',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                          Text(
+                            '${(core.steps * 0.7).toInt()} m',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                          Text(
+                            isk(),
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                        ],
                       ),
-                      Text(
-                        isk(),
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
-                    ],
-                  )),
-                ],),
+                    ),
+                  ],
+                ),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 50, vertical: 20),
                   child: Row(
@@ -190,6 +206,13 @@ class _MyHomePageState extends State<MyHomePage> {
                           }
                         },
                         child: Text("設定"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.zero,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -202,6 +225,15 @@ class _MyHomePageState extends State<MyHomePage> {
                     );
                   },
                   icon: Icon(Icons.bar_chart),
+                ),
+                IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (builder) => PP()),
+                    );
+                  },
+                  icon: Icon(Icons.emoji_events),
                 ),
               ],
             ),
@@ -348,9 +380,98 @@ class PP extends StatefulWidget {
   State<PP> createState() => _PPState();
 }
 
-class _PPState extends State<PP> {
+class _PPState extends State<PP> with SingleTickerProviderStateMixin {
+  final core = CoreLogic();
+  late AnimationController _controller;
+  double _a = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      lowerBound: double.negativeInfinity,
+      upperBound: double.infinity,
+    );
+    _controller.addListener((){
+      setState(() {
+        _a = _controller.value;
+      });
+    });
+  }
+@override
+  void dispose() {
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) {
-    return const Placeholder();
+    bool inUnlocked = core.steps >= 10000;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("需求三"),
+        leading: IconButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          icon: Icon(Icons.arrow_back),
+        ),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(inUnlocked ? "解鎖" : "${core.steps}/10000"),
+            SizedBox(height: 50),
+            GestureDetector(
+              onPanUpdate: (deltails) {
+                _controller.stop();
+                setState(() {
+                  _a += deltails.delta.dx * 0.01;
+                  _controller.value = _a;
+                });
+              },
+              onPanEnd: (deltails) {
+                double velocity = deltails.velocity.pixelsPerSecond.dx / 1000;
+                final s = FrictionSimulation(0.1, _a, velocity);
+                _controller.animateWith(s);
+              },
+              child: Transform(
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.001)
+                  ..rotateY(-_a),
+                alignment: FractionalOffset.center,
+                child: _bM(inUnlocked),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bM(bool unlock) {
+    return Container(
+      width: 200,
+      height: 200,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: unlock
+              ? [Colors.amber, Colors.orangeAccent, Colors.yellow]
+              : [Colors.grey, Colors.blueGrey, Colors.grey.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(color: Colors.black45, blurRadius: 20, spreadRadius: 5),
+        ],
+        border: Border.all(color: Colors.white, width: 5),
+      ),
+      child: Icon(
+        unlock ? Icons.emoji_events : Icons.lock,
+        size: 100,
+        color: Colors.white,
+      ),
+    );
   }
 }

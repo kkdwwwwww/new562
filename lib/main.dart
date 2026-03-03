@@ -204,6 +204,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           int? w = int.tryParse(_controller.text);
                           if (w != null) {
                             core.steps = w;
+                            core.allsteps += w;
                             core._7d.last = core.steps.toDouble();
                             core.save();
                             _controller.clear();
@@ -387,6 +388,51 @@ class PP extends StatefulWidget {
 
 class _PPState extends State<PP> with TickerProviderStateMixin {
   final core = CoreLogic();
+  @override
+  void initState() {
+    super.initState();
+    core.init((){
+      if(mounted) setState(() {});
+    });
+  }
+  @override
+  Widget build(BuildContext context) {
+    bool inUnlocked = core.steps >= 10000;
+    bool inUnlocked2 = core.allsteps >= 10000000;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("需求三"),
+        leading: IconButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          icon: Icon(Icons.arrow_back),
+        ),
+      ),
+      body: ListView(
+        children: [
+          Padding(padding: EdgeInsets.all(20),child: Column(
+            children: [
+              MedalWidget(unlock: inUnlocked, label: inUnlocked ? "解鎖(每日)" : "${core.steps} / 10000(每日)"),
+              SizedBox(height: 80,),
+              MedalWidget(unlock: inUnlocked2, label: inUnlocked2 ? "解鎖(永久)" : "${core.allsteps} / 1000000(永久)")
+                  ],
+                ),
+              ),
+            ],
+          ),
+    );
+  }
+}
+class MedalWidget extends StatefulWidget {
+  final bool unlock;
+  final String label;
+  const MedalWidget({super.key,required this.unlock,required this.label});
+  @override
+  State<MedalWidget> createState() => _MedalWidgetState();
+}
+
+class _MedalWidgetState extends State<MedalWidget> with TickerProviderStateMixin {
   late AnimationController _controller;
   late AnimationController _Bcontroller;
   double _a = 0.0;
@@ -394,9 +440,6 @@ class _PPState extends State<PP> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    core.init((){
-      if(mounted) setState(() {});
-    });
     _controller = AnimationController(
       vsync: this,
       lowerBound: double.negativeInfinity,
@@ -424,63 +467,47 @@ class _PPState extends State<PP> with TickerProviderStateMixin {
   }
   @override
   Widget build(BuildContext context) {
-    bool inUnlocked = core.allsteps >= 10000;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("需求三"),
-        leading: IconButton(
-          onPressed: () {
-            Navigator.pop(context);
+    return Column(
+      children: [
+        Text(widget.label),
+        SizedBox(height: 50,),
+        GestureDetector(
+          onPanUpdate: (deltails) {
+            _controller.stop();
+            _Bcontroller.stop();
+            setState(() {
+              _a += deltails.delta.dx * 0.02;
+              _b += deltails.delta.dy * 0.02;
+              _controller.value = _a;
+              _Bcontroller.value = _b;
+            });
           },
-          icon: Icon(Icons.arrow_back),
+          onPanEnd: (deltails) {
+            double va = deltails.velocity.pixelsPerSecond.dx / 1000;
+            double vb = deltails.velocity.pixelsPerSecond.dy / 1000;
+            Future fy = _controller.animateWith(FrictionSimulation(0.15, _a, va));
+            Future fx = _Bcontroller.animateWith(FrictionSimulation(0.15, _b, vb));
+            Future.wait([fy, fx]).then((_){
+              if(!mounted) return;
+              double ta = (_a / pi).round() * pi;
+              double tb = (_b / (2 * pi)).round() * (2 * pi);
+              final sp = SpringDescription(mass: 1, stiffness: 120, damping: 15);
+              _controller.animateWith(SpringSimulation(sp, _a, ta, 0));
+              _Bcontroller.animateWith(SpringSimulation(sp, _b, tb, 0));
+            });
+          },
+          child: Transform(
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.001)
+              ..rotateX(_b)
+              ..rotateY(-_a),
+            alignment: FractionalOffset.center,
+            child: _bM(widget.unlock),
+          ),
         ),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(inUnlocked ? "解鎖" : "${core.allsteps}/10000"),
-            SizedBox(height: 50),
-            GestureDetector(
-              onPanUpdate: (deltails) {
-                _controller.stop();
-                _Bcontroller.stop();
-                setState(() {
-                  _a += deltails.delta.dx * 0.02;
-                  _b += deltails.delta.dy * 0.02;
-                  _controller.value = _a;
-                  _Bcontroller.value = _b;
-                });
-              },
-              onPanEnd: (deltails) {
-                double va = deltails.velocity.pixelsPerSecond.dx / 1000;
-                double vb = deltails.velocity.pixelsPerSecond.dy / 1000;
-                Future fy = _controller.animateWith(FrictionSimulation(0.15, _a, va));
-                Future fx = _Bcontroller.animateWith(FrictionSimulation(0.15, _b, vb));
-                Future.wait([fy, fx]).then((_){
-                  if(!mounted) return;
-                  double ta = (_a / pi).round() * pi;
-                  double tb = (_b / (2 * pi)).round() * (2 * pi);
-                  final sp = SpringDescription(mass: 1, stiffness: 120, damping: 15);
-                  _controller.animateWith(SpringSimulation(sp, _a, ta, 0));
-                  _Bcontroller.animateWith(SpringSimulation(sp, _b, tb, 0));
-                });
-              },
-              child: Transform(
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.001)
-                  ..rotateX(_b)
-                  ..rotateY(-_a),
-                alignment: FractionalOffset.center,
-                child: _bM(inUnlocked),
-              ),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
-
   Widget _bM(bool unlock) {
     return Container(
       width: 200,

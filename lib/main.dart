@@ -62,6 +62,7 @@ class CoreLogic {
         steps++;
         allsteps++;
         _7d.last = steps.toDouble();
+        m.last = steps.toDouble();
         save();
         _onUpdate?.call();
       }
@@ -108,10 +109,17 @@ class CoreLogic {
         _7d.add(0.0);
       }
       steps = 0;
-      lastDate = todayStr;
-      _7d.last = 0.0;
-      save();
     }
+    if (last.year != today.year || last.month != today.month) {
+      int moff = (today.year - last.year) * 12 + (today.month - last.month);
+      for (int i = 0; i < moff; i++) {
+        m.removeAt(0);
+        m.add(0.0);
+      }
+    }
+    lastDate = todayStr;
+    _7d.last = 0.0;
+    save();
   }
 }
 
@@ -237,7 +245,9 @@ class _MyHomePageState extends State<MyHomePage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (builder) => PP()),
-                    ).then((_){core.init(() => setState(() {}));});
+                    ).then((_) {
+                      core.init(() => setState(() {}));
+                    });
                   },
                   icon: Icon(Icons.emoji_events),
                 ),
@@ -388,13 +398,15 @@ class PP extends StatefulWidget {
 
 class _PPState extends State<PP> with TickerProviderStateMixin {
   final core = CoreLogic();
+
   @override
   void initState() {
     super.initState();
-    core.init((){
-      if(mounted) setState(() {});
+    core.init(() {
+      if (mounted) setState(() {});
     });
   }
+
   @override
   Widget build(BuildContext context) {
     bool inUnlocked = core.steps >= 10000;
@@ -411,66 +423,85 @@ class _PPState extends State<PP> with TickerProviderStateMixin {
       ),
       body: ListView(
         children: [
-          Padding(padding: EdgeInsets.all(20),child: Column(
-            children: [
-              MedalWidget(unlock: inUnlocked, label: inUnlocked ? "解鎖(每日)" : "${core.steps} / 10000(每日)"),
-              SizedBox(height: 80,),
-              MedalWidget(unlock: inUnlocked2, label: inUnlocked2 ? "解鎖(永久)" : "${core.allsteps} / 1000000(永久)")
-                  ],
+          Padding(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              children: [
+                MedalWidget(
+                  unlock: inUnlocked,
+                  label: inUnlocked ? "解鎖(每日)" : "${core.steps} / 10000(每日)",
                 ),
-              ),
-            ],
+                SizedBox(height: 80),
+                MedalWidget(
+                  unlock: inUnlocked2,
+                  label: inUnlocked2
+                      ? "解鎖(永久)"
+                      : "${core.allsteps} / 1000000(永久)",
+                ),
+              ],
+            ),
           ),
+        ],
+      ),
     );
   }
 }
+
 class MedalWidget extends StatefulWidget {
   final bool unlock;
   final String label;
-  const MedalWidget({super.key,required this.unlock,required this.label});
+
+  const MedalWidget({super.key, required this.unlock, required this.label});
+
   @override
   State<MedalWidget> createState() => _MedalWidgetState();
 }
 
-class _MedalWidgetState extends State<MedalWidget> with TickerProviderStateMixin {
+class _MedalWidgetState extends State<MedalWidget>
+    with TickerProviderStateMixin {
   late AnimationController _controller;
   late AnimationController _Bcontroller;
   double _a = 0.0;
   double _b = 0.0;
+
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      lowerBound: double.negativeInfinity,
-      upperBound: double.infinity,
-    )..addListener((){
-      setState(() {
-        _a = _controller.value;
-      });
-    });
-    _Bcontroller = AnimationController(
-      vsync: this,
-      lowerBound: double.negativeInfinity,
-      upperBound: double.infinity,
-    )..addListener((){
-      setState(() {
-        _b = _Bcontroller.value;
-      });
-    });
+    _controller =
+        AnimationController(
+          vsync: this,
+          lowerBound: double.negativeInfinity,
+          upperBound: double.infinity,
+        )..addListener(() {
+          setState(() {
+            _a = _controller.value;
+          });
+        });
+    _Bcontroller =
+        AnimationController(
+          vsync: this,
+          lowerBound: double.negativeInfinity,
+          upperBound: double.infinity,
+        )..addListener(() {
+          setState(() {
+            _b = _Bcontroller.value;
+          });
+        });
   }
+
   @override
   void dispose() {
     _controller.dispose();
     _Bcontroller.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Text(widget.label),
-        SizedBox(height: 50,),
+        SizedBox(height: 50),
         GestureDetector(
           onPanUpdate: (deltails) {
             _controller.stop();
@@ -485,13 +516,21 @@ class _MedalWidgetState extends State<MedalWidget> with TickerProviderStateMixin
           onPanEnd: (deltails) {
             double va = deltails.velocity.pixelsPerSecond.dx / 1000;
             double vb = deltails.velocity.pixelsPerSecond.dy / 1000;
-            Future fy = _controller.animateWith(FrictionSimulation(0.15, _a, va));
-            Future fx = _Bcontroller.animateWith(FrictionSimulation(0.15, _b, vb));
-            Future.wait([fy, fx]).then((_){
-              if(!mounted) return;
+            Future fy = _controller.animateWith(
+              FrictionSimulation(0.15, _a, va),
+            );
+            Future fx = _Bcontroller.animateWith(
+              FrictionSimulation(0.15, _b, vb),
+            );
+            Future.wait([fy, fx]).then((_) {
+              if (!mounted) return;
               double ta = (_a / pi).round() * pi;
               double tb = (_b / (2 * pi)).round() * (2 * pi);
-              final sp = SpringDescription(mass: 1, stiffness: 120, damping: 15);
+              final sp = SpringDescription(
+                mass: 1,
+                stiffness: 120,
+                damping: 15,
+              );
               _controller.animateWith(SpringSimulation(sp, _a, ta, 0));
               _Bcontroller.animateWith(SpringSimulation(sp, _b, tb, 0));
             });
@@ -508,6 +547,7 @@ class _MedalWidgetState extends State<MedalWidget> with TickerProviderStateMixin
       ],
     );
   }
+
   Widget _bM(bool unlock) {
     return Container(
       width: 200,

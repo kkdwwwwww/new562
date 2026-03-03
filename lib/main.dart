@@ -33,6 +33,7 @@ class CoreLogic {
 
   static const plat = MethodChannel("wasd");
   int steps = 0;
+  int allsteps = 0;
   String lastDate = "";
   List<double> _7d = List.filled(7, 0);
   List<double> m = List.filled(12, 0);
@@ -46,6 +47,7 @@ class CoreLogic {
         lastDate = data['date'] ?? "";
         if (data.containsKey('7d')) _7d = List<double>.from(data['7d']);
         if (data.containsKey('12m')) m = List<double>.from(data['12m']);
+        allsteps = data['allstep'];
         _checkDate();
         _7d.last = steps.toDouble();
         _onUpdate?.call();
@@ -58,6 +60,7 @@ class CoreLogic {
       if (handler.method == "onsss") {
         _checkDate();
         steps++;
+        allsteps++;
         _7d.last = steps.toDouble();
         save();
         _onUpdate?.call();
@@ -72,6 +75,7 @@ class CoreLogic {
       'date': lastDate,
       '7d': _7d,
       '12m': m,
+      'allstep': allsteps,
     });
     await plat.invokeMethod("save", {"json": jS});
   }
@@ -84,6 +88,7 @@ class CoreLogic {
 
   Future<void> clearData() async {
     steps = 0;
+    allsteps = 0;
     lastDate = DateTime.now().toString().split(' ')[0];
     _7d = List.filled(7, 0);
     m = List.filled(12, 0);
@@ -231,7 +236,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(builder: (builder) => PP()),
-                    );
+                    ).then((_){core.init(() => setState(() {}));});
                   },
                   icon: Icon(Icons.emoji_events),
                 ),
@@ -380,33 +385,46 @@ class PP extends StatefulWidget {
   State<PP> createState() => _PPState();
 }
 
-class _PPState extends State<PP> with SingleTickerProviderStateMixin {
+class _PPState extends State<PP> with TickerProviderStateMixin {
   final core = CoreLogic();
   late AnimationController _controller;
+  late AnimationController _Bcontroller;
   double _a = 0.0;
-
+  double _b = 0.0;
   @override
   void initState() {
     super.initState();
-    core.init(() => setState(() {}));
+    core.init((){
+      if(mounted) setState(() {});
+    });
     _controller = AnimationController(
       vsync: this,
       lowerBound: double.negativeInfinity,
       upperBound: double.infinity,
-    );
-    _controller.addListener((){
+    )..addListener((){
       setState(() {
         _a = _controller.value;
       });
     });
+    _Bcontroller = AnimationController(
+      vsync: this,
+      lowerBound: double.negativeInfinity,
+      upperBound: double.infinity,
+    )..addListener((){
+      setState(() {
+        _b = _Bcontroller.value;
+      });
+    });
   }
-@override
+  @override
   void dispose() {
+    _controller.dispose();
+    _Bcontroller.dispose();
     super.dispose();
   }
   @override
   Widget build(BuildContext context) {
-    bool inUnlocked = core.steps >= 10000;
+    bool inUnlocked = core.allsteps >= 10000;
     return Scaffold(
       appBar: AppBar(
         title: Text("需求三"),
@@ -421,24 +439,37 @@ class _PPState extends State<PP> with SingleTickerProviderStateMixin {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(inUnlocked ? "解鎖" : "${core.steps}/10000"),
+            Text(inUnlocked ? "解鎖" : "${core.allsteps}/10000"),
             SizedBox(height: 50),
             GestureDetector(
               onPanUpdate: (deltails) {
                 _controller.stop();
+                _Bcontroller.stop();
                 setState(() {
-                  _a += deltails.delta.dx * 0.01;
+                  _a += deltails.delta.dx * 0.02;
+                  _b += deltails.delta.dy * 0.02;
                   _controller.value = _a;
+                  _Bcontroller.value = _b;
                 });
               },
               onPanEnd: (deltails) {
-                double velocity = deltails.velocity.pixelsPerSecond.dx / 1000;
-                final s = FrictionSimulation(0.1, _a, velocity);
-                _controller.animateWith(s);
+                double va = deltails.velocity.pixelsPerSecond.dx / 1000;
+                double vb = deltails.velocity.pixelsPerSecond.dy / 1000;
+                Future fy = _controller.animateWith(FrictionSimulation(0.15, _a, va));
+                Future fx = _Bcontroller.animateWith(FrictionSimulation(0.15, _b, vb));
+                Future.wait([fy, fx]).then((_){
+                  if(!mounted) return;
+                  double ta = (_a / pi).round() * pi;
+                  double tb = (_b / (2 * pi)).round() * (2 * pi);
+                  final sp = SpringDescription(mass: 1, stiffness: 120, damping: 15);
+                  _controller.animateWith(SpringSimulation(sp, _a, ta, 0));
+                  _Bcontroller.animateWith(SpringSimulation(sp, _b, tb, 0));
+                });
               },
               child: Transform(
                 transform: Matrix4.identity()
                   ..setEntry(3, 2, 0.001)
+                  ..rotateX(_b)
                   ..rotateY(-_a),
                 alignment: FractionalOffset.center,
                 child: _bM(inUnlocked),

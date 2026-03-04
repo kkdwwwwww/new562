@@ -181,14 +181,6 @@ class _MyHomePageState extends State<MyHomePage> {
                         ],
                       ),
                     ),
-                    Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-
-                        ],
-                      ),
-                    ),
                   ],
                 ),
                 SizedBox(height: 20,),

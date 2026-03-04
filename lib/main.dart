@@ -32,9 +32,8 @@ class CoreLogic {
   CoreLogic._internal();
 
   static const plat = MethodChannel("wasd");
-  int steps = 0;
-  int allsteps = 0;
   String lastDate = "";
+  List<int> steps = [0,0];
   List<double> _7d = List.filled(7, 0);
   List<double> m = List.filled(12, 0);
   Function? _onUpdate;
@@ -43,13 +42,11 @@ class CoreLogic {
     _onUpdate = onUpdate;
     load().then((data) {
       if (data.containsKey('step')) {
-        steps = data['step'];
+        steps = List<int>.from(data['step']);
         lastDate = data['date'] ?? "";
         if (data.containsKey('7d')) _7d = List<double>.from(data['7d']);
         if (data.containsKey('12m')) m = List<double>.from(data['12m']);
-        allsteps = data['allstep'];
         _checkDate();
-        _7d.last = steps.toDouble();
         _onUpdate?.call();
       } else {
         lastDate = DateTime.now().toString().split(' ')[0];
@@ -59,10 +56,9 @@ class CoreLogic {
     plat.setMethodCallHandler((handler) async {
       if (handler.method == "onsss") {
         _checkDate();
-        steps++;
-        allsteps++;
-        _7d.last = steps.toDouble();
-        m.last = steps.toDouble();
+        steps.last++;
+        _7d.last = steps.last.toDouble();
+        m.last++;
         save();
         _onUpdate?.call();
       }
@@ -76,7 +72,6 @@ class CoreLogic {
       'date': lastDate,
       '7d': _7d,
       '12m': m,
-      'allstep': allsteps,
     });
     await plat.invokeMethod("save", {"json": jS});
   }
@@ -88,8 +83,7 @@ class CoreLogic {
   }
 
   Future<void> clearData() async {
-    steps = 0;
-    allsteps = 0;
+    steps = List<int>.filled(2, 0);
     lastDate = DateTime.now().toString().split(' ')[0];
     _7d = List.filled(7, 0);
     m = List.filled(12, 0);
@@ -99,7 +93,7 @@ class CoreLogic {
 
   void _checkDate() {
     String todayStr = DateTime.now().toString().split(' ')[0];
-    if (lastDate == "" && lastDate == todayStr) return;
+    if (lastDate == "" || lastDate == todayStr) return;
     DateTime last = DateTime.parse(lastDate);
     DateTime today = DateTime.parse(todayStr);
     int dayOff = today.difference(last).inDays;
@@ -108,7 +102,8 @@ class CoreLogic {
         _7d.removeAt(0);
         _7d.add(0.0);
       }
-      steps = 0;
+      steps.first += steps.last;
+      steps.last = 0;
     }
     if (last.year != today.year || last.month != today.month) {
       int moff = (today.year - last.year) * 12 + (today.month - last.month);
@@ -165,7 +160,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       height: 200,
                       width: 200,
                       child: CircularProgressIndicator(
-                        value: core.steps / 10000,
+                        value: core.steps.last / 10000,
                         strokeWidth: 12,
                         color: Colors.orange,
                         backgroundColor: Colors.grey,
@@ -176,11 +171,11 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: Column(
                         children: [
                           Text(
-                            '${core.steps} 步',
+                            '${core.steps.last} 步',
                             style: Theme.of(context).textTheme.headlineMedium,
                           ),
                           Text(
-                            '${(core.steps * 0.7).toInt()} m',
+                            '${(core.steps.last * 0.7).toInt()} m',
                             style: Theme.of(context).textTheme.headlineMedium,
                           ),
                           Text(
@@ -211,9 +206,9 @@ class _MyHomePageState extends State<MyHomePage> {
                         onPressed: () {
                           int? w = int.tryParse(_controller.text);
                           if (w != null) {
-                            core.steps = w;
-                            core.allsteps += w;
-                            core._7d.last = core.steps.toDouble();
+                            core.m.last = core.m.last - core.steps.last + w;
+                            core.steps.last = w;
+                            core._7d.last = core.steps.last.toDouble();
                             core.save();
                             _controller.clear();
                             FocusScope.of(context).unfocus();
@@ -261,10 +256,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
   String isk() {
     String www;
-    if (core.steps * 0.03 >= 1) {
-      www = "${(core.steps * 0.03).toInt()} kcal";
+    if (core.steps.last * 0.03 >= 1) {
+      www = "${(core.steps.last * 0.03).toInt()} kcal";
     } else
-      www = "${(core.steps * 30).toInt()} cal";
+      www = "${(core.steps.last * 30).toInt()} cal";
     return www;
   }
 }
@@ -409,8 +404,8 @@ class _PPState extends State<PP> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    bool inUnlocked = core.steps >= 10000;
-    bool inUnlocked2 = core.allsteps >= 10000000;
+    bool inUnlocked = core.steps.last >= 10000;
+    bool inUnlocked2 = (core.steps.first + core.steps.last) >= 10000000;
     return Scaffold(
       appBar: AppBar(
         title: Text("需求三"),
@@ -429,14 +424,14 @@ class _PPState extends State<PP> with TickerProviderStateMixin {
               children: [
                 MedalWidget(
                   unlock: inUnlocked,
-                  label: inUnlocked ? "解鎖(每日)" : "${core.steps} / 10000(每日)",
+                  label: inUnlocked ? "解鎖(每日)" : "${core.steps.last} / 10000(每日)",
                 ),
                 SizedBox(height: 80),
                 MedalWidget(
                   unlock: inUnlocked2,
                   label: inUnlocked2
                       ? "解鎖(永久)"
-                      : "${core.allsteps} / 1000000(永久)",
+                      : "${core.steps.first + core.steps.last} / 1000000(永久)",
                 ),
               ],
             ),

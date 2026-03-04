@@ -135,6 +135,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    double progress = core.steps.last / 10000;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -157,12 +158,13 @@ class _MyHomePageState extends State<MyHomePage> {
                   alignment: Alignment.center,
                   children: [
                     SizedBox(
-                      height: 200,
-                      width: 200,
+                      height: 220,
+                      width: 220,
                       child: CircularProgressIndicator(
-                        value: core.steps.last / 10000,
-                        strokeWidth: 12,
-                        color: Colors.orange,
+                        value: progress > 1.0 ? 1.0 : progress,
+                        strokeWidth: 15,
+                        strokeCap: StrokeCap.round,
+                        color: Colors.orangeAccent,
                         backgroundColor: Colors.grey,
                       ),
                     ),
@@ -171,21 +173,32 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: Column(
                         children: [
                           Text(
-                            '${core.steps.last} 步',
-                            style: Theme.of(context).textTheme.headlineMedium,
+                            '${core.steps.last}',
+                            style: TextStyle(fontSize: 48,fontWeight: FontWeight.bold),
                           ),
-                          Text(
-                            '${(core.steps.last * 0.7).toInt()} m',
-                            style: Theme.of(context).textTheme.headlineMedium,
-                          ),
-                          Text(
-                            isk(),
-                            style: Theme.of(context).textTheme.headlineMedium,
-                          ),
+                          Text("步 數",style: TextStyle(fontSize: 15,color: Colors.grey),),
+                          Text("目標 10,000",style: TextStyle(fontSize: 18,color: Colors.grey),),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+
                         ],
                       ),
                     ),
                   ],
+                ),
+                SizedBox(height: 20,),
+                Text(
+                  '${(core.steps.last * 0.7).toInt()} m',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                Text(
+                  isk(),
+                  style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 50, vertical: 20),
@@ -463,25 +476,25 @@ class _MedalWidgetState extends State<MedalWidget>
   void initState() {
     super.initState();
     _controller =
-        AnimationController(
-          vsync: this,
-          lowerBound: double.negativeInfinity,
-          upperBound: double.infinity,
-        )..addListener(() {
-          setState(() {
-            _a = _controller.value;
-          });
-        });
+    AnimationController(
+      vsync: this,
+      lowerBound: double.negativeInfinity,
+      upperBound: double.infinity,
+    )..addListener(() {
+      setState(() {
+        _a = _controller.value;
+      });
+    });
     _Bcontroller =
-        AnimationController(
-          vsync: this,
-          lowerBound: double.negativeInfinity,
-          upperBound: double.infinity,
-        )..addListener(() {
-          setState(() {
-            _b = _Bcontroller.value;
-          });
-        });
+    AnimationController(
+      vsync: this,
+      lowerBound: double.negativeInfinity,
+      upperBound: double.infinity,
+    )..addListener(() {
+      setState(() {
+        _b = _Bcontroller.value;
+      });
+    });
   }
 
   @override
